@@ -182,7 +182,9 @@ export function ResizablePanel({
       className={`relative flex-shrink-0 bg-white border-gray-200 flex flex-col overflow-hidden ${
         resizeDirection === "right" ? "border-r" : "border-l"
       }`}
-      style={{ width: defaultWidth }}
+      // 使用 widthRef.current 而非 defaultWidth prop：
+      // 防止父组件 re-render 时 React reconcile 用 prop 值覆盖拖拽后的手动 style
+      style={{ width: widthRef.current }}
       aria-label={ariaLabel ?? title}
       aria-expanded="true"
     >

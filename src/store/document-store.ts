@@ -49,6 +49,11 @@ export interface DocumentState {
   redoStack: HistorySnapshot[];
   /** 字符输入批次 timer（用于合并连续输入到同一历史节点） */
   _inputBatchTimer: ReturnType<typeof setTimeout> | null;
+  /**
+   * 当前 input batch 的起始快照（在第一次字符输入 mutation 前捕获）
+   * timer 触发时将此快照推入 undoStack，确保 undo 能回到"输入前"状态
+   */
+  _batchStartSnapshot: HistorySnapshot | null;
 
   // ── Actions ───────────────────────────────────────────────────────────
 
@@ -85,8 +90,12 @@ export interface DocumentState {
   /** 提交当前状态到撤销栈（清空重做栈） */
   _commitHistory: () => void;
 
-  /** 字符输入：延迟 500ms 提交历史（连续输入合并） */
-  _scheduleHistoryCommit: () => void;
+  /**
+   * 字符输入：延迟 500ms 提交历史（连续输入合并）
+   * @param preMutation 仅新 batch 第一次调用时传入（mutation 前快照）；
+   *                    batch 中后续调用传 null，只重置 timer，不更新起始快照
+   */
+  _scheduleHistoryCommit: (preMutation: HistorySnapshot | null) => void;
 }
 
 // ── 辅助：按路径查找节点 ──────────────────────────────────────────────────
@@ -138,6 +147,7 @@ export const useDocumentStore = create<DocumentState>()(
     undoStack: [],
     redoStack: [],
     _inputBatchTimer: null,
+    _batchStartSnapshot: null,
 
     // ── loadFromJson ───────────────────────────────────────────────────
 
@@ -168,6 +178,12 @@ export const useDocumentStore = create<DocumentState>()(
     // ── updateEntryKey ─────────────────────────────────────────────────
 
     updateEntryKey(path, newKey) {
+      // 在 mutation 前：新 batch 才捕获快照；已有 timer 说明在 batch 中，不更新快照
+      const isNewBatch = !get()._inputBatchTimer;
+      const preMutation: HistorySnapshot | null = isNewBatch
+        ? { root: get().root, jsonString: get().jsonString }
+        : null;
+
       set((s) => {
         const entry = findEntryByPath(s.root as DocumentRoot, path);
         if (!entry) return;
@@ -176,12 +192,18 @@ export const useDocumentStore = create<DocumentState>()(
         s.lastChangeSource = "visual";
         s.redoStack = [];
       });
-      get()._scheduleHistoryCommit();
+      get()._scheduleHistoryCommit(preMutation);
     },
 
     // ── updateEntryValue ───────────────────────────────────────────────
 
     updateEntryValue(path, newValue, newType) {
+      // 在 mutation 前：新 batch 才捕获快照
+      const isNewBatch = !get()._inputBatchTimer;
+      const preMutation: HistorySnapshot | null = isNewBatch
+        ? { root: get().root, jsonString: get().jsonString }
+        : null;
+
       set((s) => {
         const entry = findEntryByPath(s.root as DocumentRoot, path);
         if (!entry) return;
@@ -191,7 +213,7 @@ export const useDocumentStore = create<DocumentState>()(
         s.lastChangeSource = "visual";
         s.redoStack = [];
       });
-      get()._scheduleHistoryCommit();
+      get()._scheduleHistoryCommit(preMutation);
     },
 
     // ── insertEntry ────────────────────────────────────────────────────
@@ -322,36 +344,57 @@ export const useDocumentStore = create<DocumentState>()(
     // ── _commitHistory ─────────────────────────────────────────────────
 
     _commitHistory() {
-      const { root, jsonString, _inputBatchTimer } = get();
+      const { root, jsonString, _inputBatchTimer, _batchStartSnapshot } = get();
+
+      // 如果有 active batch timer，优先使用 batch 起始快照（pre-mutation）
+      // 而不是当前状态，避免把"已改状态"推入 undoStack
+      const snapshot = _batchStartSnapshot ?? { root, jsonString };
+
       if (_inputBatchTimer) {
         clearTimeout(_inputBatchTimer);
       }
       set((s) => {
-        s.undoStack.push({ root, jsonString });
-        // 限制撤销栈深度，避免内存无限增长
-        if (s.undoStack.length > 200) {
+        s.undoStack.push(snapshot);
+        // 撤销栈上限 1000（架构文档规格）
+        if (s.undoStack.length > 1000) {
           s.undoStack.shift();
         }
         s._inputBatchTimer = null;
+        s._batchStartSnapshot = null;
       });
     },
 
     // ── _scheduleHistoryCommit ─────────────────────────────────────────
+    //
+    // 修复：快照必须在 mutation 前由调用方捕获（pre-mutation），
+    // 而不是在 setTimeout 回调里取 get()（那时已是 mutation 后状态）。
+    //
+    // 规则：
+    // - 新 batch（preMutation !== null）：保存 _batchStartSnapshot，重置 timer
+    // - batch 中（preMutation === null）：只重置 timer，不更新快照
 
-    _scheduleHistoryCommit() {
+    _scheduleHistoryCommit(preMutation) {
       const current = get()._inputBatchTimer;
       if (current) clearTimeout(current);
 
-      // 先取一次快照用于比较
-      const { root, jsonString } = get();
+      // 新 batch：保存 pre-mutation 快照
+      if (preMutation !== null) {
+        set((s) => {
+          s._batchStartSnapshot = preMutation;
+        });
+      }
 
       const timer = setTimeout(() => {
+        const { _batchStartSnapshot } = get();
+        if (!_batchStartSnapshot) return;
+
         set((s) => {
-          s.undoStack.push({ root, jsonString });
-          if (s.undoStack.length > 200) {
+          s.undoStack.push(_batchStartSnapshot!);
+          if (s.undoStack.length > 1000) {
             s.undoStack.shift();
           }
           s._inputBatchTimer = null;
+          s._batchStartSnapshot = null;
         });
       }, 500);
 

@@ -31,6 +31,7 @@ function resetStore() {
     undoStack: [],
     redoStack: [],
     _inputBatchTimer: null,
+    _batchStartSnapshot: null,
   });
 }
 
@@ -301,6 +302,85 @@ describe("DocumentStore — 嵌套路径操作", () => {
 });
 
 // ──────────────────────────────────────────────────────────────────────────
+
+describe("DocumentStore — 字符级 undo（updateEntryValue 连续输入）", () => {
+  beforeEach(() => {
+    resetStore();
+    act(() => getState().loadFromJson('{"text":"hello"}', "file"));
+  });
+
+  it("连续 updateEntryValue 后 undo 回到第一次修改前的状态", async () => {
+    const id = getRootChildren()[0].id;
+    const originalValue = "hello";
+
+    // 模拟用户连续快速输入：hello → helloa → helloab → helloabc
+    act(() => getState().updateEntryValue([id], "helloa", "string"));
+    act(() => getState().updateEntryValue([id], "helloab", "string"));
+    act(() => getState().updateEntryValue([id], "helloabc", "string"));
+
+    // 等待 500ms batch timer 触发
+    await new Promise((r) => setTimeout(r, 600));
+
+    // 此时 undoStack 应有 pre-mutation 快照（"hello" 状态）
+    expect(getState().undoStack.length).toBeGreaterThan(0);
+
+    // undo 应该回到 "hello"（输入前状态），而不是 "helloabc"
+    act(() => getState().undo());
+    const afterUndo = getRootChildren()[0].value;
+    expect(afterUndo).toBe(originalValue);
+  });
+
+  it("batch 中多次输入只产生一个 undo 节点", async () => {
+    const id = getRootChildren()[0].id;
+
+    const undoBefore = getState().undoStack.length;
+
+    // 快速连续输入（都在 500ms 内）
+    act(() => getState().updateEntryValue([id], "helloa", "string"));
+    act(() => getState().updateEntryValue([id], "helloab", "string"));
+    act(() => getState().updateEntryValue([id], "helloabc", "string"));
+
+    // 等待 batch timer
+    await new Promise((r) => setTimeout(r, 600));
+
+    // 只新增了一个 undo 节点
+    expect(getState().undoStack.length).toBe(undoBefore + 1);
+  });
+
+  it("新 batch 的快照是 pre-mutation 状态，而非 post-mutation", async () => {
+    const id = getRootChildren()[0].id;
+
+    // 第一次输入
+    act(() => getState().updateEntryValue([id], "hello_modified", "string"));
+
+    // _batchStartSnapshot 应该是修改前的状态
+    const batchSnap = getState()._batchStartSnapshot;
+    expect(batchSnap).not.toBeNull();
+    // 快照里的 root 中 text 值应是原始 "hello"，而不是 "hello_modified"
+    const snapChildren = batchSnap!.root.kind !== "scalar" ? batchSnap!.root.children : [];
+    expect(snapChildren[0]?.value).toBe("hello");
+  });
+
+  it("两次独立输入（中间停顿 > 500ms）产生两个 undo 节点", async () => {
+    const id = getRootChildren()[0].id;
+
+    act(() => getState().updateEntryValue([id], "hello_1", "string"));
+    // 等 batch 提交
+    await new Promise((r) => setTimeout(r, 600));
+
+    const afterFirst = getState().undoStack.length;
+
+    act(() => getState().updateEntryValue([id], "hello_2", "string"));
+    await new Promise((r) => setTimeout(r, 600));
+
+    expect(getState().undoStack.length).toBe(afterFirst + 1);
+
+    // 两次 undo 回到原始 "hello"
+    act(() => getState().undo()); // hello_1 → batch 起点（hello）? 这里是第2次batch, undo到hello_1
+    act(() => getState().undo()); // 回到 hello
+    expect(getRootChildren()[0].value).toBe("hello");
+  });
+});
 
 describe("DocumentStore — toggleCollapsed", () => {
   beforeEach(() => {
