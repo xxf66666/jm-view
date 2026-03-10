@@ -32,7 +32,7 @@ import { notePlugin }    from "./plugins/note";      // ::note (T09补完)
 import { tipPlugin }     from "./plugins/tip";       // ::tip (T09补完)
 import { warningPlugin } from "./plugins/warning";   // ::warning (T09补完)
 import { metaPlugin }    from "./plugins/meta";      // ::meta (T09补完)
-import { latexPlugin }   from "./plugins/latex";     // ::latex (T09补完)
+import { latexPlugin }   from "./plugins/latex";     // ::LaTeX (T09补完)
 
 // ── 注册（顺序即为斜杠菜单显示顺序，T11 会用到）─────────────────────────
 registerBlock(quotePlugin);

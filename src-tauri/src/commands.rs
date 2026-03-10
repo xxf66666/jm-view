@@ -228,3 +228,23 @@ pub async fn fs_delete_draft(app: AppHandle, draft_id: String) -> Result<(), Str
     }
     Ok(())
 }
+
+// ── T25: 获取命令行启动参数 ────────────────────────────────────────────────
+
+/// 返回启动时的第一个非 flag 参数作为文件路径
+/// 例如：`jm-view /path/to/file.json` → Some("/path/to/file.json")
+#[tauri::command]
+pub async fn get_startup_file() -> Option<String> {
+    let args: Vec<String> = std::env::args().collect();
+    // args[0] 是可执行文件本身，跳过以 '-' 开头的 flag
+    args.into_iter()
+        .skip(1)
+        .find(|a| !a.starts_with('-') && !a.is_empty())
+}
+
+/// 读取指定路径文件内容（T25 启动加载用）
+#[tauri::command]
+pub async fn fs_read_file(path: String) -> Result<String, String> {
+    fs::read_to_string(&path)
+        .map_err(|e| format!("读取文件失败 {path}: {e}"))
+}

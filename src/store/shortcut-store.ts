@@ -9,7 +9,7 @@ import { create } from "zustand";
 
 export type ShortcutAction =
   | "undo" | "redo" | "save" | "saveAs" | "open" | "new"
-  | "search" | "replace" | "bold" | "italic" | "copy" | "cut" | "paste";
+  | "search" | "replace" | "copy" | "cut" | "paste";
 
 export type ShortcutPreset = "default" | "word" | "notepad++" | "vscode";
 
@@ -33,8 +33,6 @@ const PRESETS: Record<ShortcutPreset, ShortcutMap> = {
     new:     { key: "n", ctrl: true, label: "Ctrl+N" },
     search:  { key: "f", ctrl: true, label: "Ctrl+F" },
     replace: { key: "h", ctrl: true, label: "Ctrl+H" },
-    bold:    { key: "b", ctrl: true, label: "Ctrl+B" },
-    italic:  { key: "i", ctrl: true, label: "Ctrl+I" },
     copy:    { key: "c", ctrl: true, label: "Ctrl+C" },
     cut:     { key: "x", ctrl: true, label: "Ctrl+X" },
     paste:   { key: "v", ctrl: true, label: "Ctrl+V" },
@@ -48,8 +46,6 @@ const PRESETS: Record<ShortcutPreset, ShortcutMap> = {
     new:     { key: "n", ctrl: true, label: "Ctrl+N" },
     search:  { key: "f", ctrl: true, label: "Ctrl+F" },
     replace: { key: "h", ctrl: true, label: "Ctrl+H" },
-    bold:    { key: "b", ctrl: true, label: "Ctrl+B" },
-    italic:  { key: "i", ctrl: true, label: "Ctrl+I" },
     copy:    { key: "c", ctrl: true, label: "Ctrl+C" },
     cut:     { key: "x", ctrl: true, label: "Ctrl+X" },
     paste:   { key: "v", ctrl: true, label: "Ctrl+V" },
@@ -63,8 +59,6 @@ const PRESETS: Record<ShortcutPreset, ShortcutMap> = {
     new:     { key: "n", ctrl: true, label: "Ctrl+N" },
     search:  { key: "f", ctrl: true, label: "Ctrl+F" },
     replace: { key: "h", ctrl: true, label: "Ctrl+H" },
-    bold:    { key: "b", ctrl: true, label: "Ctrl+B" },
-    italic:  { key: "i", ctrl: true, label: "Ctrl+I" },
     copy:    { key: "c", ctrl: true, label: "Ctrl+C" },
     cut:     { key: "x", ctrl: true, label: "Ctrl+X" },
     paste:   { key: "v", ctrl: true, label: "Ctrl+V" },
@@ -78,8 +72,6 @@ const PRESETS: Record<ShortcutPreset, ShortcutMap> = {
     new:     { key: "n", ctrl: true, label: "Ctrl+N" },
     search:  { key: "f", ctrl: true, label: "Ctrl+F" },
     replace: { key: "h", ctrl: true, label: "Ctrl+H" },
-    bold:    { key: "b", ctrl: true, label: "Ctrl+B" },
-    italic:  { key: "i", ctrl: true, label: "Ctrl+I" },
     copy:    { key: "c", ctrl: true, label: "Ctrl+C" },
     cut:     { key: "x", ctrl: true, label: "Ctrl+X" },
     paste:   { key: "v", ctrl: true, label: "Ctrl+V" },

@@ -21,12 +21,14 @@ class BlockRegistry {
    * @throws {Error} 若 prefix 已注册
    */
   register(plugin: BlockPlugin): void {
-    if (this.plugins.has(plugin.prefix)) {
+    // 规范化 key 为 lowercase，确保 ::LaTeX / ::latex 等大小写变体均能命中
+    const key = plugin.prefix.toLowerCase();
+    if (this.plugins.has(key)) {
       throw new Error(
         `[BlockRegistry] prefix "::${plugin.prefix}" 已注册，禁止重复注册。`
       );
     }
-    this.plugins.set(plugin.prefix, plugin);
+    this.plugins.set(key, plugin);
   }
 
   /**

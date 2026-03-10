@@ -15,6 +15,8 @@ pub fn run() {
             commands::fs_list_drafts,
             commands::fs_restore_draft,
             commands::fs_delete_draft,
+            commands::get_startup_file,
+            commands::fs_read_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

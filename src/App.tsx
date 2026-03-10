@@ -1,8 +1,8 @@
 /**
- * App — 主布局（T03，T10~T22 集成）
+ * App — 主布局（T03，T10~T25 集成）
  *
  * ┌───────────────────────────────────────────────────────┐
- * │  菜单栏（文件操作 + Undo/Redo + 主题切换）              │
+ * │  菜单栏（文件操作 + Undo/Redo + 导入导出 + 主题切换）    │
  * ├───────────────────────────────────────────────────────┤
  * │  标签栏 TabBar（T14）                                   │
  * ├──────────────┬─────────────────────┬──────────────────┤
@@ -11,7 +11,7 @@
  * └──────────────┴─────────────────────┴──────────────────┘
  */
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { ResizablePanel } from "./components/layout/ResizablePanel";
 import { TabBar } from "./components/layout/TabBar";
 import { OutlinePanel } from "./components/layout/OutlinePanel";
@@ -27,9 +27,18 @@ import { useShortcutStore } from "./store/shortcut-store";
 import { useFileOps } from "./hooks/useFileOps";
 import { useDraftAutosave } from "./hooks/useDraftAutosave";
 import { useLargeFileLoader } from "./hooks/useLargeFileLoader";
+import { useStartupFile } from "./hooks/useStartupFile";
+import { exportToMarkdown } from "./utils/markdown-export";
+import { importFromMarkdown } from "./utils/markdown-import";
+import { exportToHtml } from "./utils/html-export";
+import { exportToPdf } from "./utils/pdf-export";
+import { isTauri, invoke } from "./utils/ipc";
 // 注册所有 :: 块插件（side-effect import，必须在 EntryCard 渲染前执行）
 import "./components/blocks";
-import { FolderOpen, Save, FilePlus, Undo2, Redo2 } from "lucide-react";
+import {
+  FolderOpen, Save, FilePlus, Undo2, Redo2,
+  FileDown, FileUp, Globe, FileText
+} from "lucide-react";
 
 function App() {
   const [leftCollapsed, setLeftCollapsed] = useState(false);
@@ -42,6 +51,8 @@ function App() {
   const canUndo = useDocumentStore((s) => s.undoStack.length > 0);
   const canRedo = useDocumentStore((s) => s.redoStack.length > 0);
   const isDirty = useDocumentStore((s) => s.isDirty);
+  const root = useDocumentStore((s) => s.root);
+  const loadFromJson = useDocumentStore((s) => s.loadFromJson);
 
   const updateActiveTabMeta = useTabStore((s) => s.updateActiveTabMeta);
   const openTab = useTabStore((s) => s.openTab);
@@ -50,8 +61,10 @@ function App() {
   const { matches: shortcutMatches } = useShortcutStore();
   const { state: largeFileState, cancel: cancelLargeFile } = useLargeFileLoader();
 
-  // T16
+  // T16 草稿自动保存
   useDraftAutosave(currentPath);
+  // T25 命令行启动参数
+  useStartupFile();
 
   // 文件打开同步到 TabManager
   const prevPathRef = useRef<string | null>(null);
@@ -67,6 +80,74 @@ function App() {
   useEffect(() => {
     updateActiveTabMeta({ isDirty });
   }, [isDirty, updateActiveTabMeta]);
+
+  // ── T18 导出 Markdown ────────────────────────────────────────────────────
+  const handleExportMarkdown = useCallback(async () => {
+    const { markdown, attachments } = exportToMarkdown(root);
+    if (isTauri()) {
+      try {
+        const savePath = await invoke<string>("fs_save_file_as", {
+          content: markdown,
+        });
+        // 写附件（同目录）
+        const dir = savePath.replace(/[/\\][^/\\]+$/, "");
+        for (const att of attachments) {
+          const attPath = `${dir}/${att.path}`;
+          await invoke<void>("fs_write_binary", {
+            path: attPath,
+            base64: att.base64,
+          }).catch(() => {/* 附件写入失败不阻塞主流程 */});
+        }
+      } catch {/* 用户取消 */}
+    } else {
+      const blob = new Blob([markdown], { type: "text/markdown" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = url; a.download = "export.md"; a.click();
+      URL.revokeObjectURL(url);
+    }
+  }, [root]);
+
+  // ── T19 导入 Markdown ────────────────────────────────────────────────────
+  const handleImportMarkdown = useCallback(() => {
+    const input = document.createElement("input");
+    input.type = "file"; input.accept = ".md,.markdown";
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result as string;
+        if (!text) return;
+        const { root: newRoot, warnings } = importFromMarkdown(text);
+        const json = JSON.stringify(
+          newRoot.kind === "scalar"
+            ? { [newRoot.entry.key]: newRoot.entry.value }
+            : Object.fromEntries(newRoot.children.map((c) => [c.key, c.value])),
+          null, 2
+        );
+        loadFromJson(json, "file");
+        if (warnings.length > 0) console.info("[importMarkdown] warnings:", warnings);
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }, [loadFromJson]);
+
+  // ── T23 导出 HTML ────────────────────────────────────────────────────────
+  const handleExportHtml = useCallback(() => {
+    const title = currentPath?.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, "") ?? "export";
+    const html = exportToHtml(root, title);
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `${title}.html`; a.click();
+    URL.revokeObjectURL(url);
+  }, [root, currentPath]);
+
+  // ── T24 导出 PDF ─────────────────────────────────────────────────────────
+  const handleExportPdf = useCallback(() => {
+    const title = currentPath?.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, "") ?? "export";
+    exportToPdf(root, title);
+  }, [root, currentPath]);
 
   // ── 全局键盘快捷键（T20 shortcut-store）────────────────────────────────
   useEffect(() => {
@@ -103,7 +184,7 @@ function App() {
       <LargeFileProgress state={largeFileState} onCancel={cancelLargeFile} />
 
       {/* ── 菜单栏 ────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-0.5 px-2 py-1 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+      <div className="flex items-center gap-0.5 px-2 py-1 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0 flex-wrap">
         <button className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-300 rounded hover:bg-gray-100 dark:hover:bg-gray-700" onClick={newTab} title="新建 (Ctrl+N)">
           <FilePlus size={13} /> 新建
         </button>
@@ -113,13 +194,34 @@ function App() {
         <button className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-300 rounded hover:bg-gray-100 dark:hover:bg-gray-700" onClick={handleSave} title="保存 (Ctrl+S)">
           <Save size={13} /> 保存
         </button>
-        <div className="w-px h-4 bg-gray-200 dark:bg-gray-600 mx-1" />
-        <button className="p-1.5 rounded text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed" onClick={undo} disabled={!canUndo} title="撤销 (Ctrl+Z)"><Undo2 size={14} /></button>
-        <button className="p-1.5 rounded text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed" onClick={redo} disabled={!canRedo} title="重做 (Ctrl+Y)"><Redo2 size={14} /></button>
-        <div className="flex-1 text-center text-xs text-gray-400 dark:text-gray-500 truncate px-4">
+
+        <div className="w-px h-4 bg-gray-200 dark:bg-gray-600 mx-0.5" />
+
+        {/* T18/T19 导入导出 MD */}
+        <button className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-300 rounded hover:bg-gray-100 dark:hover:bg-gray-700" onClick={handleImportMarkdown} title="导入 Markdown（T19）">
+          <FileUp size={13} /> 导入 MD
+        </button>
+        <button className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-300 rounded hover:bg-gray-100 dark:hover:bg-gray-700" onClick={handleExportMarkdown} title="导出 Markdown（T18）">
+          <FileDown size={13} /> MD
+        </button>
+        {/* T23 HTML */}
+        <button className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-300 rounded hover:bg-gray-100 dark:hover:bg-gray-700" onClick={handleExportHtml} title="导出 HTML（T23）">
+          <Globe size={13} /> HTML
+        </button>
+        {/* T24 PDF */}
+        <button className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-300 rounded hover:bg-gray-100 dark:hover:bg-gray-700" onClick={handleExportPdf} title="导出 PDF（T24）">
+          <FileText size={13} /> PDF
+        </button>
+
+        <div className="w-px h-4 bg-gray-200 dark:bg-gray-600 mx-0.5" />
+        <button className="p-1.5 rounded text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed" onClick={undo} disabled={!canUndo} title="撤销"><Undo2 size={14} /></button>
+        <button className="p-1.5 rounded text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed" onClick={redo} disabled={!canRedo} title="重做"><Redo2 size={14} /></button>
+
+        <div className="flex-1 text-center text-xs text-gray-400 dark:text-gray-500 truncate px-2">
           {isDirty && <span className="text-blue-500 mr-1">●</span>}
           {displayName}
         </div>
+
         {/* T21 主题切换 */}
         <ThemeToggle />
       </div>
