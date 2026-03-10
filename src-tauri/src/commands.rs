@@ -169,7 +169,8 @@ pub async fn fs_list_drafts(app: AppHandle) -> Result<Vec<DraftInfo>, String> {
 
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.extension().and_then(|s| s.to_str()) != Some("json") {
+        let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        if !file_name.ends_with(".draft.json") {
             continue;
         }
         if let Ok(raw) = fs::read_to_string(&path) {

@@ -5,7 +5,7 @@
  * 与 DocumentStore 集成，处理 IPC 调用 + Store 更新
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDocumentStore } from "../store/document-store";
 import { openFile, saveFile, saveFileAs } from "../utils/ipc";
 
@@ -20,6 +20,22 @@ export function useFileOps() {
 
   const [currentPath, setCurrentPath] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
+
+  // ── 订阅 DocumentStore 内容变化，联动 isDirty ────────────────────────
+  // 使用 getState().jsonString 作为 baseline，防止首次渲染误触发
+  useEffect(() => {
+    let prevJsonString = useDocumentStore.getState().jsonString;
+
+    const unsub = useDocumentStore.subscribe((state) => {
+      const newJsonString = state.jsonString;
+      if (newJsonString !== prevJsonString) {
+        prevJsonString = newJsonString;
+        setIsDirty(true);
+      }
+    });
+
+    return () => unsub();
+  }, []); // 仅 mount 时注册一次；保存/打开/新建后由各自 handler 调用 setIsDirty(false)
 
   // ── 打开文件 ─────────────────────────────────────────────────────────
 
