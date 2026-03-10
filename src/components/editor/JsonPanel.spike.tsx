@@ -24,15 +24,19 @@ export const ExternalChangeAnnotation = Annotation.define<"visual" | "json">();
 // ── 防抖 hook ─────────────────────────────────────────────────────────────
 function useDebounce(fn: (value: string) => void, delay: number): (value: string) => void {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const fnRef = useRef(fn);
-  fnRef.current = fn; // always up-to-date without triggering re-render
+  // useRef 存 callback：父组件每次 render 产生新函数引用时不重建 debounce，
+  // 避免 useCallback([fn, delay]) 每次 fn 变更都重置 timer 导致防抖失效。
+  const callbackRef = useRef(fn);
+  useEffect(() => {
+    callbackRef.current = fn;
+  }, [fn]);
 
   return useCallback(
     (value: string) => {
       if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => fnRef.current(value), delay);
+      timerRef.current = setTimeout(() => callbackRef.current(value), delay);
     },
-    [delay] // fn intentionally tracked via fnRef to avoid stale closure
+    [delay]
   );
 }
 
