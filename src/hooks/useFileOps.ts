@@ -5,7 +5,7 @@
  * 与 DocumentStore 集成，处理 IPC 调用 + Store 更新
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useDocumentStore } from "../store/document-store";
 import { openFile, saveFile, saveFileAs } from "../utils/ipc";
 
@@ -21,6 +21,20 @@ export function useFileOps() {
   const [currentPath, setCurrentPath] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
 
+  /**
+   * 记录最后一次"干净"状态的 jsonString 快照（保存/打开/新建时更新）。
+   * 用于与 store 当前值比较，决定 isDirty。
+   */
+  const cleanSnapshotRef = useRef<string>(jsonString);
+
+  // ── 订阅 store 变化：内容偏离保存快照时标记 dirty ───────────────────
+
+  useEffect(() => {
+    if (jsonString !== cleanSnapshotRef.current) {
+      setIsDirty(true);
+    }
+  }, [jsonString]);
+
   // ── 打开文件 ─────────────────────────────────────────────────────────
 
   const handleOpen = useCallback(async () => {
@@ -29,6 +43,7 @@ export function useFileOps() {
       if (!result) return; // 用户取消
 
       loadFromJson(result.content, "file");
+      cleanSnapshotRef.current = result.content; // 更新干净快照
       setCurrentPath(result.path);
       setIsDirty(false);
     } catch (err) {
@@ -43,6 +58,7 @@ export function useFileOps() {
     try {
       const savedPath = await saveFileAs(jsonString);
       if (savedPath) {
+        cleanSnapshotRef.current = jsonString; // 更新干净快照
         setCurrentPath(savedPath);
         setIsDirty(false);
       }
@@ -59,6 +75,7 @@ export function useFileOps() {
     }
     try {
       await saveFile(currentPath, jsonString);
+      cleanSnapshotRef.current = jsonString; // 更新干净快照
       setIsDirty(false);
     } catch (err) {
       console.error("[useFileOps] 保存失败:", err);
@@ -69,6 +86,7 @@ export function useFileOps() {
 
   const handleNew = useCallback(() => {
     loadFromJson("{}", "file");
+    cleanSnapshotRef.current = "{}"; // 更新干净快照
     setCurrentPath(null);
     setIsDirty(false);
   }, [loadFromJson]);
