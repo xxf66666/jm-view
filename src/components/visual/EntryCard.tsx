@@ -87,6 +87,9 @@ export function EntryCard({
 
   const commitValueEdit = useCallback(() => {
     setIsEditingValue(false);
+    // 短路：值未变化，避免 onBlur + onChange 双重触发无效 dispatch
+    if (valueDraft === String(entry.value ?? "")) return;
+
     let newValue: string | number | boolean | null = valueDraft;
     let newType: JsonType = "string";
 

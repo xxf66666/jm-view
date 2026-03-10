@@ -14,6 +14,7 @@
 import React, { useState, useEffect } from "react";
 import { ResizablePanel } from "./components/layout/ResizablePanel";
 import { VisualCanvas } from "./components/visual/VisualCanvas";
+import { JsonPanel } from "./components/editor/JsonPanel";
 import { useDocumentStore } from "./store/document-store";
 
 // 开发阶段默认 JSON，T13 实现文件打开后删除
@@ -81,8 +82,8 @@ function App() {
         title="JSON"
         ariaLabel="JSON 源码面板"
       >
-        {/* T08 实现：CodeMirror 6 双向同步 */}
-        <div className="p-4 text-sm text-gray-400">待 T08 实现</div>
+        {/* T07/T08: CodeMirror 6 双向同步 */}
+        <JsonPanel />
       </ResizablePanel>
     </div>
   );
