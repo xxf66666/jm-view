@@ -42,28 +42,31 @@ function loadJson(json: string) {
 describe("VisualCanvas — AC01: 合法 JSON 卡片正确渲染", () => {
   beforeEach(resetStore);
 
-  it("渲染 string 类型节点", () => {
+  it("渲染 string 类型节点（无角标，REQ F04）", () => {
     loadJson('{"name":"Alice"}');
     render(<VisualCanvas />);
     expect(screen.getByText("name")).toBeInTheDocument();
     expect(screen.getByText('"Alice"')).toBeInTheDocument();
-    expect(screen.getByText("str")).toBeInTheDocument();
+    // string 类型无角标（REQ F04 规格）
+    expect(screen.queryByText("str")).not.toBeInTheDocument();
   });
 
-  it("渲染 number 类型节点", () => {
+  it("渲染 number 类型节点（整数=#，REQ F04）", () => {
     loadJson('{"age":30}');
     render(<VisualCanvas />);
     expect(screen.getByText("age")).toBeInTheDocument();
     expect(screen.getByText("30")).toBeInTheDocument();
-    expect(screen.getByText("num")).toBeInTheDocument();
+    // int 角标 = "#"
+    expect(screen.getByText("#")).toBeInTheDocument();
   });
 
-  it("渲染 boolean 类型节点（true）", () => {
+  it("渲染 boolean 类型节点（T/F 角标，REQ F04）", () => {
     loadJson('{"active":true}');
     render(<VisualCanvas />);
     expect(screen.getByText("active")).toBeInTheDocument();
     expect(screen.getByText("true")).toBeInTheDocument();
-    expect(screen.getByText("bool")).toBeInTheDocument();
+    // bool 角标 = "T/F"
+    expect(screen.getByText("T/F")).toBeInTheDocument();
   });
 
   it("渲染 null 类型节点", () => {
@@ -75,19 +78,19 @@ describe("VisualCanvas — AC01: 合法 JSON 卡片正确渲染", () => {
     expect(nullEls.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("渲染 object 类型节点，显示子节点数量", () => {
+  it("渲染 object 类型节点，显示子节点数量（{} 格式，REQ F04）", () => {
     loadJson('{"addr":{"city":"Beijing","zip":"100000"}}');
     render(<VisualCanvas />);
     expect(screen.getByText("addr")).toBeInTheDocument();
-    // TypeBadge 显示 "{ } 2"
-    expect(screen.getByText(/\{ \} 2/)).toBeInTheDocument();
+    // TypeBadge 显示 "{} 2"（无空格，REQ F04 规格）
+    expect(screen.getByText(/\{\} 2/)).toBeInTheDocument();
   });
 
-  it("渲染 array 类型节点，显示子节点数量", () => {
+  it("渲染 array 类型节点，显示子节点数量（[] 格式，REQ F04）", () => {
     loadJson('{"tags":["a","b","c"]}');
     render(<VisualCanvas />);
     expect(screen.getByText("tags")).toBeInTheDocument();
-    expect(screen.getByText(/\[ \] 3/)).toBeInTheDocument();
+    expect(screen.getByText(/\[\] 3/)).toBeInTheDocument();
   });
 
   it("多个根节点全部渲染", () => {

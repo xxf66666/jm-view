@@ -18,6 +18,9 @@ import { ChevronRight, ChevronDown, Copy, Scissors, Trash2, Plus } from "lucide-
 import { TypeBadge } from "./TypeBadge";
 import { BlockDispatcher } from "../blocks/BlockRegistry";
 import { isBlockString } from "../blocks/utils";
+import { SmartArrayView } from "./TableView";
+// array-detect.ts: 工具函数同步保留（其他文件可能引用）
+import { SlashMenu } from "./SlashMenu";
 import { useDocumentStore } from "../../store/document-store";
 import type { JsonEntry, JsonPath, JsonType } from "../../types/json-ast";
 
@@ -61,6 +64,10 @@ export function EntryCard({
 
   const keyInputRef = useRef<HTMLInputElement>(null);
   const valueInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+
+  // ── 斜杠菜单状态（T11）───────────────────────────────────────────────
+  const [slashAnchorRect, setSlashAnchorRect] = useState<DOMRect | null>(null);
+  const slashQuery = valueDraft.startsWith("/") ? valueDraft : "";
 
   const { updateEntryKey, updateEntryValue, deleteEntry, insertEntry, toggleCollapsed } =
     useDocumentStore();
@@ -115,14 +122,49 @@ export function EntryCard({
     }
   }, [valueDraft, entry.type, entry.value, path, updateEntryValue]);
 
+  // T12：层级输入规则 — 双 Enter 检测
+  const lastEnterTimeRef = useRef<number>(0);
+
   const onValueInputKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      commitValueEdit();
-    }
+    // Escape：放弃编辑
     if (e.key === "Escape") {
       setValueDraft(String(entry.value ?? ""));
       setIsEditingValue(false);
+      return;
+    }
+
+    // Tab：子级插入（T12 — Tab=子级，仅一次）
+    if (e.key === "Tab" && !e.shiftKey) {
+      e.preventDefault();
+      commitValueEdit();
+      // 将当前节点升级为 object 并在其内部插入第一个子节点
+      updateEntryValue(path, [{ id: "", key: "newKey", value: "", type: "string" as const, collapsed: false }], "object");
+      insertEntry(path, 0, { key: "newKey", value: "", type: "string" });
+      return;
+    }
+
+    // Enter：同级插入，双 Enter=子子级（T12）
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      const now = Date.now();
+      const isDoubleEnter = now - lastEnterTimeRef.current < 500;
+      lastEnterTimeRef.current = now;
+
+      commitValueEdit();
+
+      if (isDoubleEnter) {
+        // 双 Enter = 在当前条目内部插入子节点（子子级）
+        // 将当前项转为 object，插入子条目
+        insertEntry(path, 0, { key: "newKey", value: "", type: "string" });
+      } else {
+        // 单 Enter = 同级：在父层 index+1 位置插入兄弟节点
+        const parentPath = path.slice(0, -1);
+        insertEntry(parentPath, index + 1, {
+          key: parentType === "array" ? String(index + 1) : "newKey",
+          value: "",
+          type: "string",
+        });
+      }
     }
   };
 
@@ -265,20 +307,46 @@ export function EntryCard({
       }
 
       return (
-        <input
-          ref={valueInputRef as React.RefObject<HTMLInputElement>}
-          autoFocus
-          className="text-sm font-mono text-gray-700 bg-blue-50 border border-blue-300 rounded px-1 min-w-0 flex-1 focus:outline-none"
-          value={valueDraft}
-          onChange={(e) => {
-            setValueDraft(e.target.value);
-            // 字符级实时同步（触发 _scheduleHistoryCommit）
-            updateEntryValue(path, e.target.value, entry.type as JsonType);
-          }}
-          onBlur={commitValueEdit}
-          onKeyDown={onValueInputKeyDown}
-          onClick={(e) => e.stopPropagation()}
-        />
+        <>
+          <input
+            ref={valueInputRef as React.RefObject<HTMLInputElement>}
+            autoFocus
+            className="text-sm font-mono text-gray-700 bg-blue-50 border border-blue-300 rounded px-1 min-w-0 flex-1 focus:outline-none"
+            value={valueDraft}
+            onChange={(e) => {
+              const val = e.target.value;
+              setValueDraft(val);
+              updateEntryValue(path, val, entry.type as JsonType);
+              // 斜杠命令触发（T11）
+              if (val.startsWith("/") && entry.type === "string") {
+                const rect = (e.target as HTMLInputElement).getBoundingClientRect();
+                setSlashAnchorRect(rect);
+              } else {
+                setSlashAnchorRect(null);
+              }
+            }}
+            onBlur={() => {
+              commitValueEdit();
+              // 延迟关闭，给 SlashMenu mouseDown 有机会触发
+              setTimeout(() => setSlashAnchorRect(null), 150);
+            }}
+            onKeyDown={onValueInputKeyDown}
+            onClick={(e) => e.stopPropagation()}
+          />
+          {slashAnchorRect && slashQuery && (
+            <SlashMenu
+              query={slashQuery}
+              anchorRect={slashAnchorRect}
+              onSelect={(defaultContent) => {
+                setValueDraft(defaultContent);
+                updateEntryValue(path, defaultContent, "string");
+                setSlashAnchorRect(null);
+                setIsEditingValue(false);
+              }}
+              onClose={() => setSlashAnchorRect(null)}
+            />
+          )}
+        </>
       );
     }
 
@@ -345,10 +413,16 @@ export function EntryCard({
           <span className="w-4 flex-shrink-0" />
         )}
 
-        {/* 类型角标 */}
+        {/* 类型角标（F04：string无角标，int=#，float=#.，点击切换）*/}
         <TypeBadge
           type={entry.type}
+          value={entry.value}
           childCount={isContainer ? children.length : undefined}
+          onToggleNumericType={
+            entry.type === "number"
+              ? (newVal) => updateEntryValue(path, newVal, "number")
+              : undefined
+          }
         />
 
         {/* Key */}
@@ -397,19 +471,38 @@ export function EntryCard({
         </div>
       </div>
 
-      {/* ── 子节点区域 ───────────────────────────────────────────────── */}
+      {/* ── 子节点区域（T10 SmartArrayView 表格/列表）─────────────── */}
       {isContainer && !entry.collapsed && children.length > 0 && (
-        <div className="ml-6 pl-3 border-l-2 border-gray-100 mt-0.5 mb-0.5 space-y-0.5">
-          {children.map((child, idx) => (
-            <EntryCard
-              key={child.id}
-              entry={child}
-              path={[...path, child.id]}
-              parentType={entry.type as "object" | "array"}
-              index={idx}
-              depth={depth + 1}
-            />
-          ))}
+        <div className="ml-6 pl-3 border-l-2 border-gray-100 mt-0.5 mb-0.5">
+          {entry.type === "array" ? (
+            <SmartArrayView entry={entry}>
+              <div className="space-y-0.5">
+                {children.map((child, idx) => (
+                  <EntryCard
+                    key={child.id}
+                    entry={child}
+                    path={[...path, child.id]}
+                    parentType="array"
+                    index={idx}
+                    depth={depth + 1}
+                  />
+                ))}
+              </div>
+            </SmartArrayView>
+          ) : (
+            <div className="space-y-0.5">
+              {children.map((child, idx) => (
+                <EntryCard
+                  key={child.id}
+                  entry={child}
+                  path={[...path, child.id]}
+                  parentType="object"
+                  index={idx}
+                  depth={depth + 1}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
