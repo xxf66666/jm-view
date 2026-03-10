@@ -22,14 +22,17 @@ import { basicSetup } from "codemirror";
 export const ExternalChangeAnnotation = Annotation.define<"visual" | "json">();
 
 // ── 防抖 hook ─────────────────────────────────────────────────────────────
-function useDebounce<T extends (...args: never[]) => void>(fn: T, delay: number): T {
+function useDebounce(fn: (value: string) => void, delay: number): (value: string) => void {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fnRef = useRef(fn);
+  fnRef.current = fn; // always up-to-date without triggering re-render
+
   return useCallback(
-    ((...args: Parameters<T>) => {
+    (value: string) => {
       if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => fn(...args), delay);
-    }) as T,
-    [fn, delay]
+      timerRef.current = setTimeout(() => fnRef.current(value), delay);
+    },
+    [delay] // fn intentionally tracked via fnRef to avoid stale closure
   );
 }
 
