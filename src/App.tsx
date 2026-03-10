@@ -62,10 +62,14 @@ function App() {
         e.preventDefault();
         handleOpen();
       }
+      if (e.key === "n" || e.key === "N") {
+        e.preventDefault();
+        handleNew();
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [handleSave, handleSaveAs, handleOpen]);
+  }, [handleSave, handleSaveAs, handleOpen, handleNew]);
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-gray-50 text-gray-900">
