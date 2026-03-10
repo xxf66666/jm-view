@@ -29,5 +29,13 @@ export default defineConfig(async () => ({
     minify: !process.env.TAURI_ENV_DEBUG ? "esbuild" : false,
     // produce sourcemaps for debug builds
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Mermaid 包体大（~2MB），单独分包避免影响首屏加载
+          "vendor-mermaid": ["mermaid"],
+        },
+      },
+    },
   },
 }));

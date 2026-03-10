@@ -16,6 +16,7 @@
 import React, { useState, useRef, useCallback, KeyboardEvent } from "react";
 import { ChevronRight, ChevronDown, Copy, Scissors, Trash2, Plus } from "lucide-react";
 import { TypeBadge } from "./TypeBadge";
+import { BlockDispatcher, isBlockString } from "../blocks/BlockRegistry";
 import { useDocumentStore } from "../../store/document-store";
 import type { JsonEntry, JsonPath, JsonType } from "../../types/json-ast";
 
@@ -277,6 +278,19 @@ export function EntryCard({
           onKeyDown={onValueInputKeyDown}
           onClick={(e) => e.stopPropagation()}
         />
+      );
+    }
+
+    // 特殊块检测：string 类型且以 :: 开头 → BlockDispatcher 渲染
+    if (entry.type === "string" && isBlockString(String(entry.value))) {
+      return (
+        <div className="flex-1 min-w-0 w-full" onClick={(e) => e.stopPropagation()}>
+          <BlockDispatcher
+            content={String(entry.value)}
+            jsonPath={path}
+            onUpdate={(newVal) => updateEntryValue(path, newVal, "string")}
+          />
+        </div>
       );
     }
 
