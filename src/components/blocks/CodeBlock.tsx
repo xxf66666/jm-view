@@ -19,7 +19,7 @@ import { rust } from "@codemirror/lang-rust";
 import { sql } from "@codemirror/lang-sql";
 import { xml } from "@codemirror/lang-xml";
 import { Copy, Check } from "lucide-react";
-import { parseBlock, serializeBlock } from "../../utils/block-parser";
+import { parseBlock } from "../../utils/block-parser";
 import type { JmBlockProps } from "../../types/blocks";
 
 // ── 语言映射 ──────────────────────────────────────────────────────────────

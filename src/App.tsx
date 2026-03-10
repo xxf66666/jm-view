@@ -20,6 +20,8 @@ import { VisualCanvas } from "./components/visual/VisualCanvas";
 import { JsonPanel } from "./components/editor/JsonPanel";
 import { useDocumentStore } from "./store/document-store";
 import { useFileOps } from "./hooks/useFileOps";
+// 注册所有 :: 块插件（side-effect import，必须在 EntryCard 渲染前执行）
+import "./components/blocks";
 import { FolderOpen, Save, FilePlus, Undo2, Redo2 } from "lucide-react";
 
 function App() {

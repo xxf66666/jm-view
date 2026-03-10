@@ -16,7 +16,8 @@
 import React, { useState, useRef, useCallback, KeyboardEvent } from "react";
 import { ChevronRight, ChevronDown, Copy, Scissors, Trash2, Plus } from "lucide-react";
 import { TypeBadge } from "./TypeBadge";
-import { BlockDispatcher, isBlockString } from "../blocks/BlockRegistry";
+import { BlockDispatcher } from "../blocks/BlockRegistry";
+import { isBlockString } from "../blocks/utils";
 import { useDocumentStore } from "../../store/document-store";
 import type { JsonEntry, JsonPath, JsonType } from "../../types/json-ast";
 

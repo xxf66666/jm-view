@@ -7,12 +7,11 @@ import React, { useEffect, useRef, useState } from "react";
 import { parseBlock } from "../../utils/block-parser";
 import type { JmBlockProps } from "../../types/blocks";
 
-let mermaidId = 0;
-
 export function MermaidBlock({ content }: JmBlockProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
-  const id = useRef(`mermaid-${++mermaidId}`);
+  // crypto.randomUUID() 避免 HMR 累积 mermaidId 计数器问题
+  const id = useRef(`mermaid-${crypto.randomUUID().slice(0, 8)}`);
 
   const parsed = parseBlock(content);
   const diagram = (parsed?.content || parsed?.meta || "").trim();
