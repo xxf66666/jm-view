@@ -338,10 +338,52 @@ export function EntryCard({
               query={slashQuery}
               anchorRect={slashAnchorRect}
               onSelect={(defaultContent) => {
-                setValueDraft(defaultContent);
-                updateEntryValue(path, defaultContent, "string");
                 setSlashAnchorRect(null);
                 setIsEditingValue(false);
+
+                // ── 结构命令 sentinel 处理 ──────────────────────────────
+                // 这些命令操作的是当前节点所在的父级 array（表格行/列操作）
+                const parentPath = path.slice(0, -1);
+                const grandParentPath = parentPath.slice(0, -1);
+
+                if (defaultContent === "__row_add__") {
+                  // 在当前行后插入同结构的空行
+                  const sibling: typeof entry = {
+                    ...entry,
+                    id: "",
+                    value: Array.isArray(entry.value)
+                      ? (entry.value as import("../../types/json-ast").JsonEntry[]).map((c) => ({ ...c, id: "", value: "" }))
+                      : "",
+                  };
+                  insertEntry(grandParentPath.length ? grandParentPath : [], index + 1, {
+                    key: String(index + 1),
+                    value: sibling.value as string,
+                    type: "object",
+                  });
+                  return;
+                }
+
+                if (defaultContent === "__row_del__") {
+                  // 删除当前行
+                  deleteEntry(path);
+                  return;
+                }
+
+                if (defaultContent === "__col_add__") {
+                  // 在每一行末尾追加空列（仅对象数组有效）
+                  // 暂以提示代替（需遍历所有兄弟节点，T11 后续迭代完整实现）
+                  console.info("[slash/__col_add__] 列追加操作待后续迭代实现");
+                  return;
+                }
+
+                if (defaultContent === "__col_del__") {
+                  console.info("[slash/__col_del__] 列删除操作待后续迭代实现");
+                  return;
+                }
+
+                // ── 普通块内容 → 写入节点值 ──────────────────────────────
+                setValueDraft(defaultContent);
+                updateEntryValue(path, defaultContent, "string");
               }}
               onClose={() => setSlashAnchorRect(null)}
             />

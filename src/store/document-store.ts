@@ -42,6 +42,8 @@ export interface DocumentState {
   lastChangeSource: ChangeSource;
   /** JSON Panel 错误提示（null 表示合法） */
   parseError: string | null;
+  /** 文档是否有未保存的修改（T14/T16 dirty 标记）*/
+  isDirty: boolean;
 
   /** 撤销栈（不含当前状态） */
   undoStack: HistorySnapshot[];
@@ -144,6 +146,7 @@ export const useDocumentStore = create<DocumentState>()(
     jsonString: INITIAL_JSON,
     lastChangeSource: "initial",
     parseError: null,
+    isDirty: false,
     undoStack: [],
     redoStack: [],
     _inputBatchTimer: null,
@@ -172,6 +175,8 @@ export const useDocumentStore = create<DocumentState>()(
         s.parseError = null;
         s.lastChangeSource = source;
         s.redoStack = [];
+        // 来自文件/初始加载时 dirty=false；来自 json/visual 编辑时 dirty=true
+        s.isDirty = source !== "file" && source !== "initial";
       });
     },
 
@@ -190,6 +195,7 @@ export const useDocumentStore = create<DocumentState>()(
         entry.key = newKey;
         s.jsonString = rootToJson(s.root as DocumentRoot);
         s.lastChangeSource = "visual";
+              s.isDirty = true;
         s.redoStack = [];
       });
       get()._scheduleHistoryCommit(preMutation);
@@ -211,6 +217,7 @@ export const useDocumentStore = create<DocumentState>()(
         entry.type = newType;
         s.jsonString = rootToJson(s.root as DocumentRoot);
         s.lastChangeSource = "visual";
+              s.isDirty = true;
         s.redoStack = [];
       });
       get()._scheduleHistoryCommit(preMutation);
@@ -243,6 +250,7 @@ export const useDocumentStore = create<DocumentState>()(
         siblings.splice(index, 0, newEntry);
         s.jsonString = rootToJson(s.root as DocumentRoot);
         s.lastChangeSource = "visual";
+              s.isDirty = true;
         s.redoStack = [];
       });
     },
@@ -260,6 +268,7 @@ export const useDocumentStore = create<DocumentState>()(
         siblings.splice(idx, 1);
         s.jsonString = rootToJson(s.root as DocumentRoot);
         s.lastChangeSource = "visual";
+              s.isDirty = true;
         s.redoStack = [];
       });
     },
@@ -292,6 +301,7 @@ export const useDocumentStore = create<DocumentState>()(
         siblings.splice(toIndex, 0, moved);
         s.jsonString = rootToJson(s.root as DocumentRoot);
         s.lastChangeSource = "visual";
+              s.isDirty = true;
         s.redoStack = [];
       });
     },
@@ -320,6 +330,7 @@ export const useDocumentStore = create<DocumentState>()(
         s.root = prev.root;
         s.jsonString = prev.jsonString;
         s.lastChangeSource = "visual";
+              s.isDirty = true;
         s.parseError = null;
       });
     },
@@ -337,6 +348,7 @@ export const useDocumentStore = create<DocumentState>()(
         s.root = next.root;
         s.jsonString = next.jsonString;
         s.lastChangeSource = "visual";
+              s.isDirty = true;
         s.parseError = null;
       });
     },

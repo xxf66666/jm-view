@@ -19,6 +19,7 @@
  */
 
 import React, { useEffect, useRef, useCallback } from "react";
+import { ValidationPanel } from "./ValidationPanel";
 import { EditorState, Transaction, Annotation } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
@@ -154,10 +155,14 @@ export function JsonPanel() {
   }, [jsonString, lastSource]);
 
   return (
-    <div
-      ref={containerRef}
-      style={{ height: "100%", width: "100%", overflow: "hidden" }}
-      aria-label="JSON 源码编辑器"
-    />
+    <div className="flex flex-col h-full" aria-label="JSON 源码面板">
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-hidden"
+        aria-label="JSON 源码编辑器"
+      />
+      {/* T15 校验面板 */}
+      <ValidationPanel />
+    </div>
   );
 }
