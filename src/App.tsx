@@ -11,12 +11,38 @@
  * 完成标准（T03）：三栏可见，左/右面板折叠展开正常，拖拽 resize 正常
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ResizablePanel } from "./components/layout/ResizablePanel";
+import { VisualCanvas } from "./components/visual/VisualCanvas";
+import { useDocumentStore } from "./store/document-store";
+
+// 开发阶段默认 JSON，T13 实现文件打开后删除
+const DEV_SAMPLE_JSON = JSON.stringify(
+  {
+    name: "Alice",
+    age: 30,
+    active: true,
+    score: 98.5,
+    tags: ["react", "tauri", "typescript"],
+    address: {
+      city: "Beijing",
+      zip: "100000",
+    },
+    notes: null,
+  },
+  null,
+  2
+);
 
 function App() {
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
+  const loadFromJson = useDocumentStore((s) => s.loadFromJson);
+
+  // 开发阶段预加载示例 JSON
+  useEffect(() => {
+    loadFromJson(DEV_SAMPLE_JSON, "file");
+  }, [loadFromJson]);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-gray-50 text-gray-900">
@@ -37,16 +63,11 @@ function App() {
 
       {/* ── Center: Visual Canvas (F03, T05) ───────────────────────────── */}
       <main
-        className="flex-1 overflow-y-auto min-w-0"
+        className="flex-1 overflow-hidden min-w-0 flex flex-col"
         aria-label="可视化编辑区"
       >
-        {/* T05 实现：根据 AST 渲染 key-value 卡片 */}
-        <div className="flex items-center justify-center h-full">
-          <div className="text-center text-gray-400 select-none">
-            <p className="text-2xl font-light mb-2">jm-view</p>
-            <p className="text-sm">可视化编辑区 — 待 T05 实现</p>
-          </div>
-        </div>
+        {/* T05: 卡片渲染引擎 */}
+        <VisualCanvas />
       </main>
 
       {/* ── Right: JSON Source Panel (F09, T08) ─────────────────────────── */}
