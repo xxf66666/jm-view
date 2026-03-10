@@ -112,11 +112,9 @@ export function JsonPanel() {
 
   // ── ① Visual → JSON Panel：差量 Transaction 更新，保留光标 ─────────────
   //
-  // 使用 useRef 追踪 source，避免 state 导致的时序问题（architect 明确要求）
-  const lastSourceRef = useRef(lastSource);
-  const jsonStringRef = useRef(jsonString);
-  lastSourceRef.current = lastSource;
-  jsonStringRef.current = jsonString;
+  // useEffect 直接从 closure 消费 jsonString / lastSource（Zustand selector 值），
+  // React 保证同一 render 内两个 selector 的一致性，不需要额外 ref 追踪。
+  // architect review 注：之前的 lastSourceRef/jsonStringRef 是死代码，已删除。
 
   useEffect(() => {
     const view = viewRef.current;
