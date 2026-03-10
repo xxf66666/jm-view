@@ -24,13 +24,19 @@ export type BlockType =
   | "embed"    // URL iframe 嵌入
   | "date"     // 日期/时间显示
   | "color"    // 颜色色块
-  | "mention"; // @用户 提及
+  | "mention"  // @用户 提及
+  | "note"     // 笔记块（T09补完）
+  | "tip"      // 提示块（T09补完）
+  | "warning"  // 警告块（T09补完）
+  | "meta"     // 元数据块（T09补完）
+  | "latex";   // LaTeX 公式（math 别名，T09补完）
 
 export const ALL_BLOCK_TYPES: BlockType[] = [
   "quote", "code", "image", "video", "audio",
   "math", "mermaid", "link", "file", "heading",
   "callout", "divider", "toggle", "embed",
   "date", "color", "mention",
+  "note", "tip", "warning", "meta", "latex",
 ];
 
 /**
