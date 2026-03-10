@@ -13,6 +13,7 @@
 
 import React, { useState, useEffect } from "react";
 import { ResizablePanel } from "./components/layout/ResizablePanel";
+import { OutlinePanel } from "./components/layout/OutlinePanel";
 import { VisualCanvas } from "./components/visual/VisualCanvas";
 import { JsonPanel } from "./components/editor/JsonPanel";
 import { useDocumentStore } from "./store/document-store";
@@ -58,8 +59,8 @@ function App() {
         title="大纲"
         ariaLabel="大纲面板"
       >
-        {/* T04 实现：读取 AST 渲染 key 树 */}
-        <div className="p-4 text-sm text-gray-400">待 T04 实现</div>
+        {/* T08（sprint）/ T04（MVF）：大纲面板 */}
+        <OutlinePanel />
       </ResizablePanel>
 
       {/* ── Center: Visual Canvas (F03, T05) ───────────────────────────── */}

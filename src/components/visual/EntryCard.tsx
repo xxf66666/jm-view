@@ -309,7 +309,7 @@ export function EntryCard({
   };
 
   return (
-    <div className="group/card" style={{ paddingLeft: depth > 0 ? 0 : undefined }}>
+    <div id={entry.id} className="group/card" style={{ paddingLeft: depth > 0 ? 0 : undefined }}>
       {/* ── 卡片主体 ─────────────────────────────────────────────────── */}
       <div
         className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border border-transparent hover:border-gray-200 hover:bg-white hover:shadow-sm transition-all min-h-[36px] ${
